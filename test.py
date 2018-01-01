@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 #coding: utf-8
 
-import os.path as op
+import os
 import cv2
 import numpy
 from adb import adb_command, adb_press_play
 
-SCREENSHOT_IMAGE = op.join(op.dirname(__file__), 'screenshot.png') 
+SCREENSHOT_IMAGE = "screenshot.png"
 jump_factor = 2.1
+
+DEBUG = False
 
 def dist((x1,y1),(x2,y2)):
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
@@ -33,8 +35,11 @@ if __name__ == '__main__':
     cv2.namedWindow('image')
     
     for i in xrange(150):
-        adb_command('shell screencap /sdcard/screen.png')
-        adb_command("pull /sdcard/screen.png " + SCREENSHOT_IMAGE)
+        if not DEBUG:
+            adb_command('shell screencap /sdcard/screen.png')
+            adb_command("pull /sdcard/screen.png " + SCREENSHOT_IMAGE)
+        else:
+            SCREENSHOT_IMAGE = "last_screen.png"
         print "start loop %d" % i
         
         # Find the object in image and calculate the object bottom center
@@ -62,12 +67,13 @@ if __name__ == '__main__':
             for scan_x in range(100, img_w - 100):
                 pixel = img_rgb[scan_y,scan_x]
                 # check if it's the source object
-                if color_dif(pixel, source_pixel) < 50:
+                if abs(scan_x - source_pt[0]) < 25:
+                    # print "found source pixel: ", source_pixel, pixel, (scan_x, scan_y)
                     continue
                 # get the pixel of target object and set the top
                 if target_pixel is None:
                     if color_dif(pixel, bg_pixel) > 10:
-                        print bg_pixel, pixel
+                        print "Fount target top pixel: ", bg_pixel, pixel, (scan_x, scan_y)
                         target_top = (scan_x, scan_y)
                         target_left = (scan_x, scan_y)
                         target_pixel = pixel
@@ -78,21 +84,32 @@ if __name__ == '__main__':
                         if scan_x < target_left[0]:
                             target_left = (scan_x, scan_y)
                         else:
+                            print "Fount target left pixel: ", bg_pixel, pixel, target_left
                             found_left = True
                         break
-                if found_left:
-                    break
+            if found_left:
+                break
             
-        print("found target left and target top", target_left, target_top)
-        target_pt = (target_top[0], target_left[1])
+        if found_left:
+            print("found target left and target top", target_left, target_top)
+            target_pt = (target_top[0], target_left[1])
+        else:
+            print("Target not found...")
+            break
 
         cv2.line(img_rgb,source_pt, target_pt,(0,0,255), thickness=5)
         
         cv2.imshow("image", img_rgb)
-        cv2.imwrite("last.png", img_rgb)
+
+        if not DEBUG:
+            cv2.imwrite("last_operate.png", img_rgb)
+            os.system("cp screenshot.png last_screen.png")
+            move(source_pt, target_pt)
         
-        move(source_pt, target_pt)
-        
-        if cv2.waitKey(6000) & 0xFF == 27:
-            break
+            if cv2.waitKey(6000) & 0xFF == 27:
+                break
+        else:
+            if cv2.waitKey(0) & 0xFF == 27:
+                break
+    
     cv2.destroyAllWindows()
