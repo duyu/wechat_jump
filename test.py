@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     cv2.namedWindow('image')
     
-    for i in xrange(150):
+    for i in xrange(5000):
         if not DEBUG:
             adb_command('shell screencap /sdcard/screen.png')
             adb_command("pull /sdcard/screen.png " + SCREENSHOT_IMAGE)
@@ -47,6 +47,7 @@ if __name__ == '__main__':
         img_rgb = cv2.imread(SCREENSHOT_IMAGE)
         img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
         img_w, img_h = img_gray.shape[::-1]
+        print img_w, img_h
         template = cv2.imread('template.png',0)
         template_w, template_h = template.shape[::-1]
 
@@ -58,58 +59,92 @@ if __name__ == '__main__':
 
         # Find the target point
         # scan start from the score area and ended with the source area, step 50px
-        target_top = None
-        target_left = None
-        found_left = False
+        target_top_start = None
+        target_top_end = None
+        target_top_center = None
+        target_right = None
+        found_right = False
         target_pixel = None
-        source_pixel = img_rgb[source_pt[1], source_pt[0]]
+        
+        # find the top line pixels firstly
         for scan_y in range(250, source_pt[1]):
             bg_pixel = img_rgb[scan_y, 100]
-            for scan_x in range(100, img_w - 100):
+            for scan_x in range(100, img_w):
                 pixel = img_rgb[scan_y,scan_x]
                 # check if it's the source object
                 if abs(scan_x - source_pt[0]) < 25:
                     # print "found source pixel: ", source_pixel, pixel, (scan_x, scan_y)
                     continue
                 # get the pixel of target object and set the top
-                if target_pixel is None:
-                    # if it's not similar to background, we found the top pixel of target
-                    # we use the next pixel as the top so we could skip the gradual
+                if target_top_start is None:
+                    # if it's not similar to background, we found the top start pixel of target
                     if not is_pixel_similar(pixel, bg_pixel):
-                        target_top = (scan_x + 1, scan_y)
-                        target_left = (scan_x + 1, scan_y)
-                        target_pixel = img_rgb[scan_y,scan_x + 1]
-                        print "Fount target top pixel: ", pixel, target_top
+                        target_top_start = (scan_x , scan_y)
+                        target_top_end = (scan_x , scan_y)
+                        target_pixel = img_rgb[scan_y,scan_x]
+                        print "Fount target top pixel: ", pixel, target_top_start
+                        continue
+                # if it's the same line as the top line
+                elif scan_y == target_top_start[1]:
+                    # try finding the target top last pixel
+                    if not is_pixel_similar(pixel, bg_pixel):
+                        target_top_end = (scan_x, scan_y)
+                    else:
+                        target_top_center = (int((target_top_start[0] + target_top_end[0])/2), scan_y)
                         break
                 else:
-                    # found the first pixel of target object
-                    if is_pixel_similar(pixel, target_pixel):
-                        if scan_x < target_left[0]:
-                            target_left = (scan_x, scan_y)
-                        else:
-                            print "Fount target left pixel: ", pixel, target_left
-                            found_left = True
-                        break
-            if found_left:
+                    # should never come here
+                    print "What's wrong?"
+            if target_top_center:
                 break
-            
-        if found_left:
-            print("found target left and target top", target_left, target_top)
-            target_pt = (target_top[0], target_left[1])
+        print "Found Target Top Center: ", target_top_center
+        # find the rightest pixel of target object
+        target_right = target_top_end
+        current_x = target_top_end[0]
+        current_y = target_top_end[1]
+        while True:
+            # under right of last target_right
+            bg_pixel = img_rgb[current_y + 1, 100]
+            under_right_pixel = img_rgb[current_y + 1, current_x + 1]
+            # print "Check under: ", (current_x+1, current_y+1), (under_right_pixel, bg_pixel)
+            if not is_pixel_similar(under_right_pixel, bg_pixel):
+                # if the under right pixel is not similar as bg pixel, find the last one of under line
+                current_x += 1
+                current_y += 1
+                # print "Check line %d - %d" %(current_y, current_x), under_right_pixel, bg_pixel
+
+                for scan_x in range(current_x + 1, img_w):
+                    pixel = img_rgb[current_y, scan_x]
+                    if is_pixel_similar(pixel, bg_pixel):
+                        # found the last one in the under line, go check next line
+                        current_x = scan_x - 1
+                        # print "found the rightest of this line", current_x, current_y
+                        break
+                    else:
+                        continue
+            else:
+                # if the under pixel is similar as bg pixel, it means the current one is the rightest
+                print "Found the Rightest: ", under_right_pixel, target_right
+                target_right = (current_x, current_y)    
+                break
+
+        if target_right:
+            print("found target top and target right", target_top_center, target_right)
+            target_pt = (target_top_center[0], target_right[1])
         else:
             print("Target not found...")
             break
 
         cv2.line(img_rgb,source_pt, target_pt,(0,0,255), thickness=5)
         
-        cv2.imshow("image", img_rgb)
+        # cv2.imshow("image", img_rgb)
 
         if not DEBUG:
             cv2.imwrite("last_operate.png", img_rgb)
             os.system("cp screenshot.png last_screen.png")
             move(source_pt, target_pt)
         
-            if cv2.waitKey(6000) & 0xFF == 27:
+            if cv2.waitKey(3000) & 0xFF == 27:
                 break
         else:
             if cv2.waitKey(0) & 0xFF == 27:
