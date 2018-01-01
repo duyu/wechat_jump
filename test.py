@@ -8,15 +8,16 @@ from adb import adb_command, adb_press_play
 
 SCREENSHOT_IMAGE = "screenshot.png"
 jump_factor = 2.1
-
+IMAGE_DIFF = 15
 DEBUG = False
 
 def dist((x1,y1),(x2,y2)):
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
 
-def color_dif(pixel1, pixel2):
+def is_pixel_similar(pixel1, pixel2):
+    global IMAGE_DIFF
     pixel_dif = pixel1.astype(int) - pixel2.astype(int)
-    return abs(pixel_dif[0]) + abs(pixel_dif[1]) + abs(pixel_dif[2])
+    return abs(pixel_dif[0]) < IMAGE_DIFF and abs(pixel_dif[1]) < IMAGE_DIFF and abs(pixel_dif[2]) < IMAGE_DIFF
     
 def move(source_pt, target_pt):
     distance = dist(source_pt, target_pt)
@@ -72,19 +73,21 @@ if __name__ == '__main__':
                     continue
                 # get the pixel of target object and set the top
                 if target_pixel is None:
-                    if color_dif(pixel, bg_pixel) > 10:
-                        print "Fount target top pixel: ", bg_pixel, pixel, (scan_x, scan_y)
-                        target_top = (scan_x, scan_y)
-                        target_left = (scan_x, scan_y)
-                        target_pixel = pixel
+                    # if it's not similar to background, we found the top pixel of target
+                    # we use the next pixel as the top so we could skip the gradual
+                    if not is_pixel_similar(pixel, bg_pixel):
+                        target_top = (scan_x + 1, scan_y)
+                        target_left = (scan_x + 1, scan_y)
+                        target_pixel = img_rgb[scan_y,scan_x + 1]
+                        print "Fount target top pixel: ", pixel, target_top
                         break
                 else:
                     # found the first pixel of target object
-                    if color_dif(pixel, target_pixel) < 10:
+                    if is_pixel_similar(pixel, target_pixel):
                         if scan_x < target_left[0]:
                             target_left = (scan_x, scan_y)
                         else:
-                            print "Fount target left pixel: ", bg_pixel, pixel, target_left
+                            print "Fount target left pixel: ", pixel, target_left
                             found_left = True
                         break
             if found_left:
