@@ -104,13 +104,13 @@ if __name__ == '__main__':
         current_y = target_top_end[1]
         while True:
             # under right of last target_right
-            bg_pixel = img_rgb[current_y + 1, 100]
-            under_right_pixel = img_rgb[current_y + 1, current_x + 1]
+            bg_pixel = img_rgb[current_y + 2, 100]
+            under_right_pixel = img_rgb[current_y + 2, current_x + 1]
             # print "Check under: ", (current_x+1, current_y+1), (under_right_pixel, bg_pixel)
             if not is_pixel_similar(under_right_pixel, bg_pixel):
                 # if the under right pixel is not similar as bg pixel, find the last one of under line
                 current_x += 1
-                current_y += 1
+                current_y += 2
                 # print "Check line %d - %d" %(current_y, current_x), under_right_pixel, bg_pixel
 
                 for scan_x in range(current_x + 1, img_w):
@@ -137,14 +137,14 @@ if __name__ == '__main__':
 
         cv2.line(img_rgb,source_pt, target_pt,(0,0,255), thickness=5)
         
-        # cv2.imshow("image", img_rgb)
+        cv2.imshow("image", img_rgb)
 
         if not DEBUG:
             cv2.imwrite("last_operate.png", img_rgb)
             os.system("cp screenshot.png last_screen.png")
             move(source_pt, target_pt)
         
-            if cv2.waitKey(3000) & 0xFF == 27:
+            if cv2.waitKey(2000) & 0xFF == 27:
                 break
         else:
             if cv2.waitKey(0) & 0xFF == 27:
