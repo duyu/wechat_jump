@@ -7,6 +7,7 @@ import numpy
 from adb import adb_command, adb_press_play
 
 SCREENSHOT_IMAGE = op.join(op.dirname(__file__), 'screenshot.png') 
+jump_factor = 2.1
 
 def dist((x1,y1),(x2,y2)):
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
@@ -17,7 +18,7 @@ def color_dif(pixel1, pixel2):
     
 def move(source_pt, target_pt):
     distance = dist(source_pt, target_pt)
-    time_ms = int(distance * 2.1)
+    time_ms = int(distance * jump_factor)
     print source_pt, "->", target_pt
     print "Distance: %d, Time: %d" % (distance, time_ms)
     adb_press_play(time_ms)
@@ -61,7 +62,7 @@ if __name__ == '__main__':
             for scan_x in range(100, img_w - 100):
                 pixel = img_rgb[scan_y,scan_x]
                 # check if it's the source object
-                if color_dif(pixel, source_pixel) < 10:
+                if color_dif(pixel, source_pixel) < 50:
                     continue
                 # get the pixel of target object and set the top
                 if target_pixel is None:
@@ -88,6 +89,8 @@ if __name__ == '__main__':
         cv2.line(img_rgb,source_pt, target_pt,(0,0,255), thickness=5)
         
         cv2.imshow("image", img_rgb)
+        cv2.imwrite("last.png", img_rgb)
+        
         move(source_pt, target_pt)
         
         if cv2.waitKey(6000) & 0xFF == 27:
